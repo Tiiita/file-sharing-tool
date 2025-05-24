@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-axum = { version = "0.8.4", features = ["macros", "tokio"] }
+axum = { version = "0.8.4", features = ["macros", "tokio", "ws"] }
 dotenv = "0.15.0"
 tokio = { version = "1.45.0", features = ["macros", "rt-multi-thread"] }
 tracing = "0.1.41"
