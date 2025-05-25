@@ -3,5 +3,7 @@
     "websocketUrl": "ws://127.0.0.1:11234/websocket",
     "downloadUrl": "http://127.0.0.1:11234/download",
     "uploadUrl": "http://127.0.0.1:11234/upload",
+    "renameUrl": "http://127.0.0.1:11234/rename",
+    "deleteUrl": "http://127.0.0.1:11234/delete",
     "token": "LToATlraqhMmycjCLFEl548h1uf0f7Zj835zY4CGc2c5QMdvwjuliJmj88SlDuF6"
 }

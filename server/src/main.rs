@@ -22,5 +22,7 @@ fn app() -> Router {
     Router::new()
     .route("/upload", post(endpoints::upload))
     .route("/download", get(endpoints::download))
+    .route("/delete", get(endpoints::delete))
+    .route("/rename", get(endpoints::rename))
     .route("/websocket", get(endpoints::websocket))
 }

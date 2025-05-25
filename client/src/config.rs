@@ -18,6 +18,8 @@ pub struct Config {
     pub path: String,
     pub websocket_url: String,
     pub download_url: String,
+    pub delete_url: String,
+    pub rename_url: String,
     pub upload_url: String,
     pub token: String,
 }

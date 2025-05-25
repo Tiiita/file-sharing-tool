@@ -5,13 +5,24 @@ use crate::websocket;
 
 #[axum::debug_handler]
 pub async fn upload() {
-    info!("Uploaded from: .");
+
 }
 
 #[axum::debug_handler]
 pub async fn download() {
-    info!("Downloaded from: .");
+
 }
+
+#[axum::debug_handler]
+pub async fn rename() {
+
+}
+
+#[axum::debug_handler]
+pub async fn delete() {
+
+}
+
 
 #[axum::debug_handler]
 pub async fn websocket(ws: WebSocketUpgrade) -> impl IntoResponse {

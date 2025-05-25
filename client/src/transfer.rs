@@ -27,6 +27,7 @@ impl TransferClient {
     }
 
     pub async fn upload(&self, file_path: &Path) {
+        info!("Trying upload");
         let relative_path = file_path.strip_prefix(self.path.clone()).unwrap();
 
         match tokio::fs::read(file_path).await {
@@ -66,8 +67,16 @@ impl TransferClient {
         }
     }
 
-    async fn download(file: &Path) {
+    pub async fn rename(&self, file: &Path) {
+        info!("Trying rename");
+    }
 
+    pub async fn delete(&self, file: &Path) {
+        info!("Trying delete");
+    }
+
+    async fn download(&self, file: &Path) {
+        
     }
 
     

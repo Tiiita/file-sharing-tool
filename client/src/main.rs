@@ -1,6 +1,6 @@
-use notify::{Event, EventKind, Result, Watcher, event::ModifyKind};
+use notify::{event::{self, ModifyKind}, Event, EventKind, Result, Watcher};
 use tokio_tungstenite::connect_async;
-use std::{f32::consts::E, path::Path, sync::mpsc};
+use std::{any::Any, collections::HashMap, f32::{consts::E, INFINITY}, path::Path, sync::mpsc, time::Instant};
 use tracing::{error, info, warn};
 use transfer::TransferClient;
 
@@ -21,6 +21,8 @@ async fn main() {
 }
 
 async fn watch_dir(path: &Path, client: TransferClient) {
+    let mut last_event = Vec::new();
+
     let (tx, rx) = mpsc::channel::<Result<Event>>();
     match notify::recommended_watcher(tx) {
         Ok(mut watcher) => {
@@ -36,8 +38,7 @@ async fn watch_dir(path: &Path, client: TransferClient) {
             for res in rx {
                 match res {
                     Ok(event) => {
-                        info!("Event: {:?}", event.kind);
-                        handle_event(event, &client).await;
+                        handle_event(event, &client, &mut last_event).await;
                     }
                     Err(why) => error!("Error while watching: {}", why),
                 }
@@ -49,21 +50,11 @@ async fn watch_dir(path: &Path, client: TransferClient) {
     }
 }
 
-async fn handle_event(event: Event, client: &TransferClient) {
-    let path = event.paths.first().unwrap();
-    match event.kind {
-        EventKind::Modify(mod_kind) => {
-            if let ModifyKind::Name(notify::event::RenameMode::Any) = mod_kind {
-                client.upload(path).await;
-            }
-        }
+async fn handle_event(event: Event, client: &TransferClient, last_event: &mut Vec<Event>) {
+    info!("{:?}", event.kind);
+}
 
-        EventKind::Create(_) => {
-            client.upload(path).await;
-        }
 
-        _ => {
-            warn!("Unknown event type, doing nothing")
-        }
-    }
+fn handle_group() {
+
 }
