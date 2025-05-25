@@ -1,6 +1,6 @@
 use notify::{Event, EventKind, Result, Watcher, event::ModifyKind};
 use tokio_tungstenite::connect_async;
-use std::{path::Path, sync::mpsc};
+use std::{f32::consts::E, path::Path, sync::mpsc};
 use tracing::{error, info, warn};
 use transfer::TransferClient;
 
@@ -37,7 +37,7 @@ async fn watch_dir(path: &Path, client: TransferClient) {
                 match res {
                     Ok(event) => {
                         info!("Event: {:?}", event.kind);
-                        handle_event(event, &client, &path).await;
+                        handle_event(event, &client).await;
                     }
                     Err(why) => error!("Error while watching: {}", why),
                 }
@@ -49,17 +49,17 @@ async fn watch_dir(path: &Path, client: TransferClient) {
     }
 }
 
-async fn handle_event(event: Event, client: &TransferClient, dir_path: &Path) {
-    let file_path = event.paths.first().unwrap().strip_prefix(dir_path).unwrap();
+async fn handle_event(event: Event, client: &TransferClient) {
+    let path = event.paths.first().unwrap();
     match event.kind {
         EventKind::Modify(mod_kind) => {
             if let ModifyKind::Name(notify::event::RenameMode::Any) = mod_kind {
-                client.upload(file_path).await;
+                client.upload(path).await;
             }
         }
 
         EventKind::Create(_) => {
-            client.upload(file_path).await;
+            client.upload(path).await;
         }
 
         _ => {

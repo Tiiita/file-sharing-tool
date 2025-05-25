@@ -27,9 +27,11 @@ impl TransferClient {
     }
 
     pub async fn upload(&self, file_path: &Path) {
+        let relative_path = file_path.strip_prefix(self.path.clone()).unwrap();
+
         match tokio::fs::read(file_path).await {
             Ok(bytes) => {
-                let file_name = match file_path.file_name().and_then(|n| n.to_str()) {
+                let file_name = match relative_path.file_name().and_then(|n| n.to_str()) {
                     Some(name) => name,
                     None => {
                         error!("Failed to get valid UTF-8 file name from path");
@@ -73,12 +75,8 @@ impl TransferClient {
     // Triggers download() to use http to sync file again.
     pub fn listen_websocket(&self) {
         tokio::spawn(async move {
-            Self::listen_websocket_async()
+            
         });
-    }
-
-    async fn listen_websocket_async() {
-        info!("WIP")
     }
 }
 
