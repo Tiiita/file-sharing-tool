@@ -7,6 +7,7 @@ use transfer::TransferClient;
 
 mod config;
 mod transfer;
+mod watcher_old;
 mod watcher;
 
 #[tokio::main]
@@ -17,11 +18,12 @@ async fn main() {
     let (ws_stream, _) = connect_async(&config.websocket_url)
         .await
         .expect("Failed to connect");
+
     info!("Connected to websocket");
 
     let transfer_client = Arc::new(TransferClient::new(config.clone(), ws_stream));
     transfer_client.listen_websocket();
-    
-    watcher::watch_dir(Path::new(config.path.as_str()), transfer_client).await;
+
+    watcher_old::watch_dir(Path::new(config.path.as_str()), transfer_client).await;
 }
 

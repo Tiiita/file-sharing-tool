@@ -26,11 +26,9 @@ impl TransferClient {
         
     }
 
-    pub async fn upload(&self, file_path: &Path) {
-        info!("Trying upload");
-        let relative_path = file_path.strip_prefix(self.path.clone()).unwrap();
-
-        match tokio::fs::read(file_path).await {
+    pub async fn upload(&self, abs_path: &Path) {
+        let relative_path = self.rel_path(abs_path);
+        match tokio::fs::read(abs_path).await {
             Ok(bytes) => {
                 let file_name = match relative_path.file_name().and_then(|n| n.to_str()) {
                     Some(name) => name,
@@ -41,7 +39,7 @@ impl TransferClient {
                 };
     
                 let form = multipart::Form::new()
-                    .text("file_path", file_path.to_string_lossy().into_owned())
+                    .text("file_path", relative_path.to_string_lossy().into_owned())
                     .part("file", multipart::Part::bytes(bytes).file_name(file_name.to_string()));
                 
                 match self.reqwest
@@ -62,24 +60,27 @@ impl TransferClient {
                 }
             }
             Err(why) => {
-                error!("Failed to read file {}: {}", file_path.display(), why);
+                error!("Failed to read file {}: {}", relative_path.display(), why);
             }
         }
     }
 
-    pub async fn rename(&self, file: &Path) {
+    pub async fn rename(&self, original_abs_path: &Path, new_abs_path: &Path) {
         info!("Trying rename");
     }
 
-    pub async fn delete(&self, file: &Path) {
+    pub async fn delete(&self, abs_file_path: &Path) {
         info!("Trying delete");
     }
 
-    async fn download(&self, file: &Path) {
+    async fn download(&self, abs_file_path: &Path) {
         
     }
 
-    
+    fn rel_path<'a>(&self, abs_path: &'a Path) -> &'a Path {
+        abs_path.strip_prefix(self.path.clone()).unwrap()
+    }
+
     // Starts listening for incoming file changes communcated via websocket in new thread. 
     // Triggers download() to use http to sync file again.
     pub fn listen_websocket(&self) {

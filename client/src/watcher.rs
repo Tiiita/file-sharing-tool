@@ -1,80 +1,73 @@
-use notify::{
-    Event, RecursiveMode, Result, Watcher
-};
-use std::{
-    collections::VecDeque, path::Path, sync::Arc, time::Duration
-};
-use tokio::{sync::Mutex, time::sleep};
-use tracing::{error, info};
-use transfer::TransferClient;
+use std::{collections::{HashMap, HashSet}, path::PathBuf};
 
-use crate::transfer;
-
-pub async fn watch_dir(path: &Path, client: Arc<TransferClient>) {
-    let (tx_sync, rx_sync) = std::sync::mpsc::channel::<Result<Event>>();
-
-    let mut watcher = match notify::recommended_watcher(tx_sync) {
-        Ok(w) => w,
-        Err(e) => {
-            error!("Failed to create watcher: {e}");
-            return;
-        }
-    };
-
-    if let Err(e) = watcher.watch(path, RecursiveMode::Recursive) {
-        error!("Failed to watch path: {e}");
-        return;
-    }
-
-    info!("Started watching directory");
-
-    let (tx, mut rx) = tokio::sync::mpsc::channel::<Event>(100);
-    let buffer = Arc::new(Mutex::new(VecDeque::new()));
-    let client_ref = Arc::clone(&client);
-
-    tokio::spawn({
-        let buffer = Arc::clone(&buffer);
-        async move {
-            let mut debounce_timer: Option<tokio::task::JoinHandle<()>> = None;
-
-            while let Some(event) = rx.recv().await {
-                buffer.lock().await.push_back(event);
-
-                if let Some(timer) = debounce_timer.take() {
-                    timer.abort();
-                }
-
-                let buffer = Arc::clone(&buffer);
-                let client = Arc::clone(&client_ref);
-                debounce_timer = Some(tokio::spawn(async move {
-                    sleep(Duration::from_millis(100)).await;
-
-                    let mut buf = buffer.lock().await;
-                    let grouped = std::mem::take(&mut *buf);
-                    drop(buf);
-
-                    handle_event_group(grouped, client).await;
-                }));
-            }
-        }
-    });
-
-    for res in rx_sync {
-        match res {
-            Ok(event) => {
-                if let Err(e) = tx.try_send(event) {
-                    error!("Failed to forward event: {e}");
-                }
-            }
-            Err(e) => {
-                error!("Error while watching: {e}");
-            }
-        }
-    }
+#[derive(Debug)]
+enum ChangeType {
+    Created(PathBuf),
+    Deleted(PathBuf),
+    Modified(PathBuf),
+    Moved { from: PathBuf, to: PathBuf },
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct FileInfo {
+    path: PathBuf,
+    size: u64,
+    hash: String,
+}
 
-async fn handle_event_group(buffer: VecDeque<Event>, client: Arc<TransferClient>) {
-    let kinds: Vec<_> = buffer.iter().map(|e| e.kind.clone()).collect();
-    info!("Grouped Events: {:?}", kinds);
+fn compare_snapshots(
+    old_files: &[FileInfo], 
+    new_files: &[FileInfo]
+) -> Vec<ChangeType> {
+    let old_map: HashMap<_, _> = old_files.iter().map(|f| (f.path.clone(), f)).collect();
+    let new_map: HashMap<_, _> = new_files.iter().map(|f| (f.path.clone(), f)).collect();
+
+    let mut old_hash_map: HashMap<&str, Vec<&FileInfo>> = HashMap::new();
+    for f in old_files {
+        old_hash_map.entry(&f.hash[..]).or_default().push(f);
+    }
+
+    let mut changes = Vec::new(); 
+    let mut matched_old_paths = HashSet::new();
+    let mut matched_new_paths = HashSet::new();
+
+    for (path, old_f) in &old_map {
+        if let Some(new_f) = new_map.get(path) {
+            if old_f.hash != new_f.hash {
+                changes.push(ChangeType::Modified(path.clone()));
+            }
+            matched_old_paths.insert(path.clone());
+            matched_new_paths.insert(path.clone());
+        }
+    }
+
+    for new_f in new_files {
+        if matched_new_paths.contains(&new_f.path) {
+            continue;
+        }
+        if let Some(old_candidates) = old_hash_map.get(&new_f.hash[..]) {
+            for old_f in old_candidates {
+                if !matched_old_paths.contains(&old_f.path) && old_f.path != new_f.path {
+                    changes.push(ChangeType::Moved { from: old_f.path.clone(), to: new_f.path.clone() });
+                    matched_old_paths.insert(old_f.path.clone());
+                    matched_new_paths.insert(new_f.path.clone());
+                    break;
+                }
+            }
+        }
+    }
+
+    for new_f in new_files {
+        if !matched_new_paths.contains(&new_f.path) {
+            changes.push(ChangeType::Created(new_f.path.clone()));
+        }
+    }
+
+    for old_f in old_files {
+        if !matched_old_paths.contains(&old_f.path) {
+            changes.push(ChangeType::Deleted(old_f.path.clone()));
+        }
+    }
+
+    changes
 }
